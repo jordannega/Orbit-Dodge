@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Orbit-Dodge · GOD TIER v2</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body {
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        background: #000; font-family: 'Segoe UI', 'SF Mono', 'Fira Code', monospace;
+        overflow: hidden; position: relative;
+    }
+    body::before {
+        content: ''; position: fixed; inset: -50%;
+        background: radial-gradient(circle at 50% 50%, #1a2f5a33, #000000 70%);
+        animation: bgPulse 12s ease-in-out infinite alternate;
+        z-index: 0; pointer-events: none;
+    }
+    @keyframes bgPulse {
+        0% { transform: scale(0.9); opacity: 0.6; }
+        100% { transform: scale(1.1); opacity: 1; }
+    }
+    .game-wrapper {
+        position: relative; z-index: 10;
+        background: linear-gradient(145deg, #0a1020, #050810);
+        border-radius: 2.5rem; padding: 1.5rem 1.5rem 1.2rem;
+        box-shadow:
+            0 0 0 2px #2a4a7a, 0 0 0 4px #0a1220,
+            0 30px 60px rgba(0,0,0,0.95), 0 0 120px #2a5aff22,
+            inset 0 1px 0 #3d6baa44;
+    }
+    canvas {
+        display: block; margin: 0 auto; border-radius: 50%;
+        background: #020308;
+        box-shadow: 0 0 80px #1e3f7a66, 0 0 0 3px #1a2f50 inset, 0 0 40px #000 inset;
+        cursor: crosshair; touch-action: none; transition: filter 0.2s;
+        outline: none;
+    }
+    canvas:active { filter: brightness(1.1); }
+    canvas:focus-visible { box-shadow: 0 0 80px #1e3f7a66, 0 0 0 3px #4d8aff, 0 0 40px #000 inset; }
+    .hud {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: 1rem; padding: 0 0.5rem;
+        color: #b8d0ff; font-weight: 600; letter-spacing: 1.5px;
+        text-shadow: 0 0 15px #4d7cff99;
+    }
+    .stat-group { display: flex; gap: 1.2rem; align-items: center; }
+    .stat {
+        background: #0a1222; padding: 0.45rem 1.3rem; border-radius: 3rem;
+        font-size: 1.25rem; border: 1px solid #2a4a7a;
+        box-shadow: 0 0 18px #0a1f3a inset, 0 0 12px #1e3b6644;
+        transition: all 0.15s; white-space: nowrap;
+    }
+    .stat.combo { color: #ffd966; border-color: #b8860b; box-shadow: 0 0 18px #3a2a0a inset, 0 0 20px #ffb34744; }
+    .stat.score { color: #7ff0ff; border-color: #2a7a9a; box-shadow: 0 0 18px #0a2a3a inset, 0 0 20px #22aaff44; }
+    .stat.lives { color: #ff7b7b; border-color: #8a2a2a; }
+    button {
+        background: linear-gradient(180deg, #1a2a44, #0e1626);
+        border: 1px solid #3d6baa; color: #d0e2ff;
+        font-size: 1rem; padding: 0.55rem 1.5rem; border-radius: 3rem;
+        font-weight: 700; letter-spacing: 1px; cursor: pointer;
+        box-shadow: 0 4px 0 #05080f, 0 0 0 1px #3d6baa inset, 0 0 20px #1e3b6644;
+        transition: 0.05s linear; text-shadow: 0 0 10px #4d7cff;
+        font-family: inherit;
+    }
+    button:active { transform: translateY(3px); box-shadow: 0 1px 0 #05080f, 0 0 0 1px #3d6baa inset, 0 0 20px #1e3b6644; }
+    button:hover { background: linear-gradient(180deg, #223a5a, #12203a); border-color: #5a8ad0; }
+    button:focus-visible { outline: 2px solid #4d8aff; outline-offset: 2px; }
+    .hint {
+        color: #5a7aa0; font-size: 0.85rem;
+        display: flex; gap: 1.5rem; align-items: center;
+    }
+    .hint kbd {
+        background: #0a1222; padding: 0.2rem 0.6rem; border-radius: 0.4rem;
+        border: 1px solid #2a4a7a; color: #9ab8e0; font-size: 0.8rem;
+    }
+    /* Screen flash */
+    .flash-overlay {
+        position: fixed; inset: 0; background: #ffffff; opacity: 0;
+        pointer-events: none; z-index: 50; transition: opacity 0.08s;
+    }
+    .flash-overlay.active { opacity: 0.15; }
+    /* Title screen */
+    .title-overlay {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 30; background: rgba(2, 5, 12, 0.85);
+        border-radius: 50%; backdrop-filter: blur(4px);
+        pointer-events: none; opacity: 1; transition: opacity 0.4s;
+    }
+    .title-overlay.hidden { opacity: 0; pointer-events: none; }
+    .title-overlay h1 {
+        font-size: 3.2rem; color: #7ff0ff;
+        text-shadow: 0 0 30px #22aaff, 0 0 60px #0055ff;
+        letter-spacing: 6px; font-weight: 900; margin-bottom: 0.5rem;
+        animation: titlePulse 2.5s ease-in-out infinite;
+    }
+    .title-overlay p {
+        color: #8ab0e0; font-size: 1.1rem; letter-spacing: 3px;
+        margin-bottom: 2.5rem; text-shadow: 0 0 20px #1e3b66;
+    }
+    .title-overlay .start-btn {
+        font-size: 1.4rem; padding: 0.9rem 3rem;
+        pointer-events: auto; cursor: pointer;
+        background: linear-gradient(180deg, #1a3a6a, #0e1f3a);
+        border: 2px solid #4d8aff; color: #c0e0ff;
+        border-radius: 3rem; font-weight: 900; letter-spacing: 3px;
+        box-shadow: 0 0 40px #2a6aff88, 0 6px 0 #050a14;
+        transition: 0.1s;
+    }
+    .title-overlay .start-btn:hover { background: linear-gradient(180deg, #224a8a, #122a4a); box-shadow: 0 0 60px #4a8aff, 0 6px 0 #050a14; }
+    .title-overlay .start-btn:active { transform: translateY(5px); box-shadow: 0 0 40px #2a6aff88, 0 1px 0 #050a14; }
+    @keyframes titlePulse {
+        0%, 100% { text-shadow: 0 0 30px #22aaff, 0 0 60px #0055ff; }
+        50% { text-shadow: 0 0 50px #44ccff, 0 0 100px #0088ff, 0 0 140px #0044ff; }
+    }
+    .legend {
+        display: flex; gap: 1.2rem; margin-top: 0.6rem; padding: 0 0.5rem;
+        font-size: 0.75rem; color: #6a8ab0; letter-spacing: 1px;
+        justify-content: center;
+    }
+    .legend span { display: flex; align-items: center; gap: 0.3rem; }
+    .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot.shield { background: #44ddff; box-shadow: 0 0 8px #44ddff; }
+    .dot.slow { background: #ffaa44; box-shadow: 0 0 8px #ffaa44; }
+    .dot.magnet { background: #ff66aa; box-shadow: 0 0 8px #ff66aa; }
+
+    /* === Virtual mobile control pads === */
+    .touch-controls {
+        display: none;
+        margin-top: 1rem;
+        gap: 1rem;
+        justify-content: center;
+        align-items: center;
+        padding: 0 0.5rem;
+    }
+    .touch-btn {
+        flex: 1;
+        max-width: 160px;
+        padding: 1rem 0;
+        font-size: 2rem;
+        font-weight: 900;
+        color: #c0e0ff;
+        background: linear-gradient(180deg, #1a2a44, #0e1626);
+        border: 2px solid #3d6baa;
+        border-radius: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #05080f, 0 0 0 1px #3d6baa inset, 0 0 20px #1e3b6644;
+        transition: 0.05s;
+        user-select: none;
+        touch-action: manipulation;
+    }
+    .touch-btn.active {
+        transform: translateY(4px);
+        background: linear-gradient(180deg, #2a4a7a, #1a2a44);
+        box-shadow: 0 1px 0 #05080f, 0 0 0 1px #5a8ad0 inset, 0 0 30px #4d8aff88;
+    }
+    @media (hover: none) and (pointer: coarse) {
+        .touch-controls { display: flex; }
+    }
+    /* Force show when JS detects touch */
+    body.touch-mode .touch-controls { display: flex; }
+</style>
+</head>
+<body>
+<div class="game-wrapper" id="gameWrapper">
+    <canvas id="gameCanvas" width="720" height="720" tabindex="0" aria-label="Orbit Dodge game canvas"></canvas>
+    <div class="hud">
+        <div class="stat-group">
+            <div class="stat score" aria-live="polite">⭐ <span id="scoreDisplay">0</span></div>
+            <div class="stat combo" id="comboStat" style="display:none;">🔥 <span id="comboDisplay">x1</span></div>
+            <div class="stat lives" aria-live="polite">❤️ <span id="livesDisplay">3</span></div>
+        </div>
+        <div class="hint">
+            <span><kbd>←</kbd> <kbd>→</kbd> / tap</span>
+            <button id="resetButton">↻ RESTART</button>
+        </div>
+    </div>
+    <!-- Mobile-friendly virtual controls -->
+    <div class="touch-controls" id="touchControls">
+        <div class="touch-btn" id="touchLeft" role="button" aria-label="Rotate counter-clockwise">◀</div>
+        <div class="touch-btn" id="touchRight" role="button" aria-label="Rotate clockwise">▶</div>
+    </div>
+    <div class="legend">
+        <span><span class="dot shield"></span> Shield</span>
+        <span><span class="dot slow"></span> Slow-Mo</span>
+        <span><span class="dot magnet"></span> Magnet</span>
+    </div>
+</div>
+
+<div class="flash-overlay" id="flashOverlay"></div>
+
+<script>
+(function() {
+    'use strict';
+
+    // ============================================================
+    //  CORE SETUP
+    // ============================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('gameWrapper');
+    const scoreSpan = document.getElementById('scoreDisplay');
+    const comboStat = document.getElementById('comboStat');
+    const comboDisplay = document.getElementById('comboDisplay');
+    const livesDisplay = document.getElementById('livesDisplay');
+    const flashOverlay = document.getElementById('flashOverlay');
+
+    // Canvas dimensions
+    const W = 720, H = 720;
+    const CX = W / 2, CY = H / 2;
+    const PLANET_RADIUS = 85;
+    const ORBIT_RADIUS = 200;
+    const SAT_SIZE = 13;
+
+    // === FIX #5: Despawn distances bumped so objects fully exit before disappearing ===
+    // Canvas half-diagonal = sqrt(360^2 + 360^2) ≈ 509. Set despawn beyond that.
+    const ASTEROID_DESPAWN_DIST = 600;
+    const POWERUP_DESPAWN_DIST = 600;
+
+    // === FIX #1: Invulnerability frames after taking damage ===
+    const INVULN_FRAMES = 90; // 1.5 sec at 60fps
+
+    // ============================================================
+    //  GAME STATE
+    // ============================================================
+    let angle = 0;
+    const BASE_ANGLE_SPEED = 0.038;
+    let angleSpeed = BASE_ANGLE_SPEED;
+
+    let asteroids = [];
+    let particles = [];
+    let powerups = [];
+    let stars = [];
+    let floatTexts = []; // === FIX #4: canvas-based float-up text (no DOM) ===
+
+    let score = 0;
+    let lives = 3;
+    let combo = 0;
+    let comboTimer = 0;
+    const COMBO_TIMEOUT = 90;
+
+    let gameOver = false;
+    let gameStarted = false;
+    let invulnTimer = 0; // === FIX #1 ===
+
+    // Difficulty
+    let spawnTimer = 0;
+    let spawnInterval = 32;
+    let asteroidSpeed = 2.0;
+    let difficultyTimer = 0;
+
+    // Power-up states
+    let shieldActive = false, shieldTimer = 0;
+    const SHIELD_DURATION = 300;
+    let slowMoActive = false, slowMoTimer = 0;
+    const SLOWMO_DURATION = 240;
+    let magnetActive = false, magnetTimer = 0;
+    const MAGNET_DURATION = 360;
+
+    // Screen shake
+    let shakeIntensity = 0;
+    const shakeDecay = 0.9;
+
+    // Input
+    let leftPressed = false;
+    let rightPressed = false;
+
+    // High score saved flag (avoid saving every frame)
+    let highScoreSaved = false;
+
+    // ============================================================
+    //  STAR FIELD
+    // ============================================================
+    function initStars() {
+        stars = [];
+        for (let layer = 0; layer < 3; layer++) {
+            const count = 60 - layer * 15;
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * W,
+                    y: Math.random() * H,
+                    r: 0.5 + Math.random() * (1.5 - layer * 0.3),
+                    baseAlpha: 0.2 + Math.random() * 0.6,
+                    twinkleSpeed: 0.01 + Math.random() * 0.04,
+                    twinklePhase: Math.random() * Math.PI * 2,
+                    layer: layer,
+                    dx: (Math.random() - 0.5) * 0.04 * (3 - layer),
+                    dy: (Math.random() - 0.5) * 0.04 * (3 - layer),
+                });
+            }
+        }
+    }
+
+    // ============================================================
+    //  AUDIO
+    // ============================================================
+    let audioCtx = null;
+
+    // === FIX #3: Audio initialized only on explicit user gesture ===
+    // This is called ONLY inside the start-btn handler (or a direct gesture).
+    function unlockAudio() {
+        if (audioCtx) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            return;
+        }
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            audioCtx = null;
+        }
+    }
+
+    function playTone(freq, duration, type, volume, glideTo) {
+        if (!audioCtx || audioCtx.state !== 'running') return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.value = freq;
+            if (glideTo) {
+                osc.frequency.exponentialRampToValueAtTime(glideTo, audioCtx.currentTime + duration);
+            }
+            gain.gain.setValueAtTime(volume || 0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch (e) { /* ignore */ }
+    }
+
+    const sfxScore = () => playTone(880, 0.08, 'sine', 0.06, 1320);
+    const sfxPowerup = () => {
+        playTone(523, 0.12, 'triangle', 0.1, 1046);
+        setTimeout(() => playTone(784, 0.15, 'triangle', 0.08, 1568), 60);
+    };
+    const sfxShieldBreak = () => {
+        playTone(400, 0.15, 'square', 0.1, 200);
+        playTone(600, 0.1, 'sawtooth', 0.08, 100);
+    };
+    const sfxCombo = () => {
+        playTone(1046, 0.1, 'sine', 0.07, 1568);
+        setTimeout(() => playTone(1318, 0.12, 'sine', 0.06, 2093), 50);
+    };
+    const sfxGameOver = () => {
+        playTone(440, 0.4, 'sawtooth', 0.12, 110);
+        setTimeout(() => playTone(330, 0.5, 'sawtooth', 0.1, 82), 150);
+        setTimeout(() => playTone(220, 0.6, 'sawtooth', 0.08, 55), 300);
+    };
+    const sfxLifeLost = () => playTone(300, 0.3, 'square', 0.12, 100);
+
+    // ============================================================
+    //  HELPERS
+    // ============================================================
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const randInt = (min, max) => Math.floor(rand(min, max + 1));
+    const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            this.moveTo(x + r, y);
+            this.lineTo(x + w - r, y);
+            this.quadraticCurveTo(x + w, y, x + w, y + r);
+            this.lineTo(x + w, y + h - r);
+            this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            this.lineTo(x + r, y + h);
+            this.quadraticCurveTo(x, y + h, x, y + h - r);
+            this.lineTo(x, y + r);
+            this.quadraticCurveTo(x, y, x + r, y);
+            return this;
+        };
+    }
+
+    // ============================================================
+    //  PARTICLES
+    // ============================================================
+    function spawnParticles(x, y, count, options) {
+        options = options || {};
+        const color = options.color || '#ffaa44';
+        const speed = options.speed || 3;
+        const size = options.size || 3;
+        const life = options.life || 40;
+        const spread = options.spread || Math.PI * 2;
+        const direction = options.direction || 0;
+        for (let i = 0; i < count; i++) {
+            const a = direction + (Math.random() - 0.5) * spread;
+            const v = speed * (0.3 + Math.random() * 0.7);
+            particles.push({
+                x, y,
+                vx: Math.cos(a) * v,
+                vy: Math.sin(a) * v,
+                life: life * (0.5 + Math.random() * 0.5),
+                maxLife: life,
+                size: size * (0.5 + Math.random() * 0.8),
+                color: color,
+                drag: options.drag || 0.97,
+                gravity: options.gravity || 0,
+                glow: options.glow !== false,
+            });
+        }
+    }
+
+    function spawnExplosion(x, y, color, big) {
+        const count = big ? 28 : 14;
+        const speed = big ? 5 : 3.2;
+        spawnParticles(x, y, count, { color, speed, size: big ? 4 : 2.5, life: big ? 55 : 35, drag: 0.94 });
+        spawnParticles(x, y, count / 2, { color: '#ffffff', speed: speed * 1.4, size: 1.8, life: 22, drag: 0.9 });
+    }
+
+    // === FIX #4: canvas-based floating text instead of DOM ===
+    function addFloatText(text, x, y, color) {
+        floatTexts.push({
+            text, x, y,
+            color: color || '#ffd966',
+            life: 60,
+            maxLife: 60,
+            vy: -1.2,
+        });
+    }
+
+    // ============================================================
+    //  SCREEN SHAKE / FLASH
+    // ============================================================
+    function addShake(intensity) {
+        shakeIntensity = Math.min(20, shakeIntensity + intensity);
+    }
+
+    function flash(color, duration) {
+        flashOverlay.style.background = color || '#ffffff';
+        flashOverlay.classList.add('active');
+        setTimeout(() => flashOverlay.classList.remove('active'), duration || 80);
+    }
+
+    // ============================================================
+    //  ASTEROID SPAWN
+    // ============================================================
+    function spawnAsteroid() {
+        const spawnAngle = Math.random() * Math.PI * 2;
+        const spawnDist = ORBIT_RADIUS + 120 + Math.random() * 100;
+        const x = CX + Math.cos(spawnAngle) * spawnDist;
+        const y = CY + Math.sin(spawnAngle) * spawnDist;
+
+        const radius = rand(9, 20);
+        const dx = CX - x;
+        const dy = CY - y;
+        const len = Math.hypot(dx, dy);
+
+        const vx = (dx / len) * asteroidSpeed + (Math.random() - 0.5) * 0.3;
+        const vy = (dy / len) * asteroidSpeed + (Math.random() - 0.5) * 0.3;
+
+        const tier = radius > 16 ? 2 : radius > 12 ? 1 : 0;
+        const colors = [
+            ['#b8b8c0', '#5a5f6b', '#2d323c'],
+            ['#c0a888', '#7a6040', '#3a2a1a'],
+            ['#a8b8d0', '#4a6080', '#1a2a40']
+        ][tier];
+
+        asteroids.push({
+            x, y, vx, vy, radius,
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.04,
+            tier,
+            colorLight: colors[0],
+            colorMid: colors[1],
+            colorDark: colors[2],
+            trailTimer: 0,
+        });
+    }
+
+    // ============================================================
+    //  POWER-UP SPAWN / ACTIVATE
+    // ============================================================
+    const POWERUP_TYPES = ['shield', 'slow', 'magnet'];
+    function spawnPowerup() {
+        const type = POWERUP_TYPES[randInt(0, POWERUP_TYPES.length - 1)];
+        const spawnAngle = Math.random() * Math.PI * 2;
+        const spawnDist = ORBIT_RADIUS + 80 + Math.random() * 120;
+        const x = CX + Math.cos(spawnAngle) * spawnDist;
+        const y = CY + Math.sin(spawnAngle) * spawnDist;
+
+        const dx = CX - x;
+        const dy = CY - y;
+        const len = Math.hypot(dx, dy);
+        const speed = asteroidSpeed * 0.7;
+        const vx = (dx / len) * speed;
+        const vy = (dy / len) * speed;
+
+        powerups.push({ x, y, vx, vy, type, radius: 14, pulse: 0 });
+    }
+
+    function activatePowerup(type, x, y) {
+        sfxPowerup();
+        addShake(4);
+        flash('#44ddff', 100);
+
+        if (type === 'shield') {
+            shieldActive = true;
+            shieldTimer = SHIELD_DURATION;
+            addFloatText('🛡️ SHIELD!', x, y - 30, '#44ddff');
+            spawnExplosion(x, y, '#44ddff', true);
+        } else if (type === 'slow') {
+            slowMoActive = true;
+            slowMoTimer = SLOWMO_DURATION;
+            addFloatText('⏱️ SLOW-MO!', x, y - 30, '#ffaa44');
+            spawnExplosion(x, y, '#ffaa44', true);
+        } else if (type === 'magnet') {
+            magnetActive = true;
+            magnetTimer = MAGNET_DURATION;
+            addFloatText('🧲 MAGNET!', x, y - 30, '#ff66aa');
+            spawnExplosion(x, y, '#ff66aa', true);
+        }
+    }
+
+    // ============================================================
+    //  OVERLAY MANAGEMENT (=== FIX #2: static handlers, clean removal ===)
+    // ============================================================
+    let titleOverlayEl = null;
+
+    function removeOverlay() {
+        if (titleOverlayEl && titleOverlayEl.parentNode) {
+            titleOverlayEl.parentNode.removeChild(titleOverlayEl);
+        }
+        titleOverlayEl = null;
+    }
+
+    // Static handler references — no accumulation
+    function onStartBtnClick() {
+        // === FIX #3: audio unlocked directly in this user gesture ===
+        unlockAudio();
+        if (titleOverlayEl) {
+            titleOverlayEl.classList.add('hidden');
+            const el = titleOverlayEl;
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+            titleOverlayEl = null;
+        }
+        startGame();
+    }
+
+    function onRetryBtnClick() {
+        unlockAudio();
+        if (titleOverlayEl) {
+            titleOverlayEl.classList.add('hidden');
+            const el = titleOverlayEl;
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+            titleOverlayEl = null;
+        }
+        resetGame();
+        // Small delay, then go straight into a new game
+        setTimeout(() => {
+            startGame();
+        }, 300);
+    }
+
+    function showTitleScreen() {
+        gameStarted = false;
+        removeOverlay();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'title-overlay';
+        overlay.innerHTML = `
+            <h1>ORBIT DODGE</h1>
+            <p>RADIAL GRAVITY RUNNER</p>
+            <button class="start-btn" id="startBtn" type="button">▶ LAUNCH</button>
+        `;
+        wrapper.appendChild(overlay);
+        titleOverlayEl = overlay;
+
+        // Static handler — assigned once per overlay, and overlay is replaced each time
+        overlay.querySelector('#startBtn').addEventListener('click', onStartBtnClick, { once: true });
+    }
+
+    function showGameOverOverlay() {
+        removeOverlay();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'title-overlay';
+        overlay.innerHTML = `
+            <h1 style="color:#ff6666;text-shadow:0 0 30px #ff3333,0 0 60px #aa0000;">💥 GAME OVER</h1>
+            <p style="font-size:1.6rem;color:#ffd966;letter-spacing:4px;">SCORE: ${score}</p>
+            <p style="margin-bottom:2rem;">BEST: ${getHighScore()}</p>
+            <button class="start-btn" id="retryBtn" type="button">↻ TRY AGAIN</button>
+        `;
+        wrapper.appendChild(overlay);
+        titleOverlayEl = overlay;
+
+        // === FIX #2: `{ once: true }` guarantees auto-removal, and we also remove the whole overlay ===
+        overlay.querySelector('#retryBtn').addEventListener('click', onRetryBtnClick, { once: true });
+    }
+
+    // ============================================================
+    //  HIGH SCORE
+    // ============================================================
+    function getHighScore() {
+        try { return localStorage.getItem('orbitDodgeHighScore') || '0'; }
+        catch (e) { return '0'; }
+    }
+    function saveHighScore() {
+        if (highScoreSaved) return;
+        try {
+            const current = parseInt(localStorage.getItem('orbitDodgeHighScore') || '0', 10);
+            if (score > current) localStorage.setItem('orbitDodgeHighScore', score);
+            highScoreSaved = true;
+        } catch (e) { /* ignore */ }
+    }
+
+    // ============================================================
+    //  RESET / START
+    // ============================================================
+    function resetGame() {
+        angle = 0;
+        angleSpeed = BASE_ANGLE_SPEED;
+        asteroids = [];
+        particles = [];
+        powerups = [];
+        floatTexts = [];
+        score = 0;
+        lives = 3;
+        combo = 0;
+        comboTimer = 0;
+        gameOver = false;
+        gameStarted = false;
+        invulnTimer = 0;
+        spawnTimer = 0;
+        spawnInterval = 32;
+        asteroidSpeed = 2.0;
+        difficultyTimer = 0;
+        shieldActive = false; shieldTimer = 0;
+        slowMoActive = false; slowMoTimer = 0;
+        magnetActive = false; magnetTimer = 0;
+        shakeIntensity = 0;
+        highScoreSaved = false;
+
+        scoreSpan.textContent = '0';
+        livesDisplay.textContent = '3';
+        comboStat.style.display = 'none';
+
+        initStars();
+        showTitleScreen();
+    }
+
+    function startGame() {
+        gameStarted = true;
+        gameOver = false;
+        angle = 0;
+        asteroids = [];
+        particles = [];
+        powerups = [];
+        floatTexts = [];
+        score = 0;
+        lives = 3;
+        combo = 0;
+        comboTimer = 0;
+        invulnTimer = 0;
+        spawnTimer = 0;
+        spawnInterval = 32;
+        asteroidSpeed = 2.0;
+        difficultyTimer = 0;
+        shieldActive = false; shieldTimer = 0;
+        slowMoActive = false; slowMoTimer = 0;
+        magnetActive = false; magnetTimer = 0;
+        shakeIntensity = 0;
+        highScoreSaved = false;
+
+        scoreSpan.textContent = '0';
+        livesDisplay.textContent = '3';
+        comboStat.style.display = 'none';
+
+        canvas.focus({ preventScroll: true });
+    }
+
+    // ============================================================
+    //  UPDATE
+    // ============================================================
+    function update() {
+        // Stars
+        for (const s of stars) {
+            s.twinklePhase += s.twinkleSpeed;
+            s.x += s.dx; s.y += s.dy;
+            if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+            if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx; p.y += p.vy;
+            p.vx *= p.drag; p.vy *= p.drag;
+            p.vy += p.gravity;
+            p.life--;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // Float texts
+        for (let i = floatTexts.length - 1; i >= 0; i--) {
+            const ft = floatTexts[i];
+            ft.y += ft.vy;
+            ft.vy *= 0.97;
+            ft.life--;
+            if (ft.life <= 0) floatTexts.splice(i, 1);
+        }
+
+        // Shake
+        if (shakeIntensity > 0.1) shakeIntensity *= shakeDecay;
+        else shakeIntensity = 0;
+
+        if (!gameStarted || gameOver) return;
+
+        // Timers
+        if (shieldActive) {
+            shieldTimer--;
+            if (shieldTimer <= 0) {
+                shieldActive = false;
+                sfxShieldBreak();
+                flash('#44ddff', 150);
+            }
+        }
+        if (slowMoActive) {
+            slowMoTimer--;
+            if (slowMoTimer <= 0) slowMoActive = false;
+        }
+        if (magnetActive) {
+            magnetTimer--;
+            if (magnetTimer <= 0) magnetActive = false;
+        }
+        if (invulnTimer > 0) invulnTimer--;
+
+        if (combo > 0) {
+            comboTimer--;
+            if (comboTimer <= 0) {
+                combo = 0;
+                comboStat.style.display = 'none';
+            }
+        }
+
+        // Difficulty
+        difficultyTimer++;
+        if (difficultyTimer % 300 === 0) {
+            spawnInterval = Math.max(12, spawnInterval - 1.5);
+            asteroidSpeed = Math.min(4.5, asteroidSpeed + 0.15);
+        }
+
+        // Rotate
+        if (leftPressed) angle -= angleSpeed;
+        if (rightPressed) angle += angleSpeed;
+        angle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+        // Spawn asteroids
+        spawnTimer++;
+        if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0;
+            spawnAsteroid();
+            if (score > 15 && Math.random() < 0.3) spawnAsteroid();
+            if (score > 30 && Math.random() < 0.35) spawnAsteroid();
+            if (score > 60 && Math.random() < 0.4) spawnAsteroid();
+        }
+
+        // Random power-up
+        if (Math.random() < 0.0015 && powerups.length < 2) spawnPowerup();
+
+        // Update asteroids
+        const speedMultiplier = slowMoActive ? 0.4 : 1.0;
+        const satX = CX + Math.cos(angle) * ORBIT_RADIUS;
+        const satY = CY + Math.sin(angle) * ORBIT_RADIUS;
+
+        for (let i = asteroids.length - 1; i >= 0; i--) {
+            const a = asteroids[i];
+
+            if (magnetActive) {
+                const dxS = satX - a.x, dyS = satY - a.y;
+                const dS = Math.hypot(dxS, dyS);
+                if (dS < 200 && dS > 1) {
+                    const pull = 0.15 * (1 - dS / 200);
+                    a.vx += (dxS / dS) * pull;
+                    a.vy += (dyS / dS) * pull;
+                }
+            }
+
+            a.x += a.vx * speedMultiplier;
+            a.y += a.vy * speedMultiplier;
+            a.rot += a.rotSpeed * speedMultiplier;
+
+            a.trailTimer++;
+            if (a.trailTimer % 3 === 0 && Math.random() < 0.4) {
+                particles.push({
+                    x: a.x + rand(-a.radius * 0.3, a.radius * 0.3),
+                    y: a.y + rand(-a.radius * 0.3, a.radius * 0.3),
+                    vx: rand(-0.3, 0.3) - a.vx * 0.1,
+                    vy: rand(-0.3, 0.3) - a.vy * 0.1,
+                    life: 20, maxLife: 20, size: rand(1, 2.5),
+                    color: a.colorMid, drag: 0.96, gravity: 0, glow: false,
+                });
+            }
+
+            // Planet absorption
+            if (dist(a.x, a.y, CX, CY) < PLANET_RADIUS - 5) {
+                spawnExplosion(a.x, a.y, '#ff8844', false);
+                asteroids.splice(i, 1);
+                continue;
+            }
+
+            // === FIX #1: skip collision entirely while invulnerable ===
+            if (invulnTimer > 0) continue;
+
+            // Satellite collision
+            const dSat = dist(a.x, a.y, satX, satY);
+            if (dSat < a.radius + SAT_SIZE * 0.85) {
+                if (shieldActive) {
+                    shieldActive = false;
+                    shieldTimer = 0;
+                    sfxShieldBreak();
+                    addShake(10);
+                    flash('#44ddff', 150);
+                    spawnExplosion(a.x, a.y, '#44ddff', true);
+                    addFloatText('SHIELD ABSORB!', a.x, a.y - 20, '#44ddff');
+                    asteroids.splice(i, 1);
+                    continue;
+                }
+
+                // Lose a life
+                lives--;
+                livesDisplay.textContent = lives;
+                sfxLifeLost();
+                addShake(16);
+                flash('#ff3333', 200);
+                spawnExplosion(satX, satY, '#ff4444', true);
+                spawnExplosion(a.x, a.y, '#ff8844', true);
+                asteroids.splice(i, 1);
+
+                // === FIX #1: grant invuln frames regardless of life outcome ===
+                invulnTimer = INVULN_FRAMES;
+
+                if (lives <= 0) {
+                    gameOver = true;
+                    sfxGameOver();
+                    addShake(25);
+                    flash('#ffffff', 300);
+                    spawnExplosion(satX, satY, '#ffaa44', true);
+                    spawnExplosion(satX, satY, '#ff4444', true);
+                    spawnExplosion(satX, satY, '#ffffff', true);
+                    saveHighScore();
+                    setTimeout(showGameOverOverlay, 600);
+                } else {
+                    // Clear very-close asteroids for breathing room
+                    for (let j = asteroids.length - 1; j >= 0; j--) {
+                        const other = asteroids[j];
+                        if (dist(other.x, other.y, satX, satY) < 120) {
+                            spawnExplosion(other.x, other.y, '#ff8844', false);
+                            asteroids.splice(j, 1);
+                        }
+                    }
+                }
+                break;
+            }
+
+            // === FIX #5: bumped despawn distance ===
+            if (dist(a.x, a.y, CX, CY) > ASTEROID_DESPAWN_DIST) {
+                asteroids.splice(i, 1);
+                combo++;
+                comboTimer = COMBO_TIMEOUT;
+                const points = 1 + Math.floor(combo / 5);
+                score += points;
+                if (combo >= 3) {
+                    comboStat.style.display = 'block';
+                    comboDisplay.textContent = 'x' + combo;
+                    if (combo % 5 === 0) {
+                        sfxCombo();
+                        addFloatText('🔥 COMBO x' + combo + '!', satX, satY - 40, '#ffd966');
+                    }
+                }
+                scoreSpan.textContent = score;
+                sfxScore();
+                spawnParticles(satX, satY, 4, { color: '#7ff0ff', speed: 2, size: 2, life: 20 });
+            }
+        }
+
+        // Update power-ups
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            const p = powerups[i];
+            p.x += p.vx * speedMultiplier;
+            p.y += p.vy * speedMultiplier;
+            p.pulse += 0.1;
+
+            if (Math.random() < 0.3) {
+                const col = p.type === 'shield' ? '#44ddff' : p.type === 'slow' ? '#ffaa44' : '#ff66aa';
+                particles.push({
+                    x: p.x + rand(-5, 5), y: p.y + rand(-5, 5),
+                    vx: rand(-0.3, 0.3), vy: rand(-0.3, 0.3),
+                    life: 15, maxLife: 15, size: rand(1, 3),
+                    color: col, drag: 0.95, gravity: 0, glow: true,
+                });
+            }
+
+            if (dist(p.x, p.y, CX, CY) < PLANET_RADIUS) { powerups.splice(i, 1); continue; }
+
+            if (invulnTimer <= 0) {
+                const dSat = dist(p.x, p.y, satX, satY);
+                if (dSat < SAT_SIZE + p.radius + 5) {
+                    activatePowerup(p.type, p.x, p.y);
+                    powerups.splice(i, 1);
+                    continue;
+                }
+            }
+
+            // === FIX #5: bumped despawn ===
+            if (dist(p.x, p.y, CX, CY) > POWERUP_DESPAWN_DIST) {
+                powerups.splice(i, 1);
+            }
+        }
+    }
+
+    // ============================================================
+    //  DRAW
+    // ============================================================
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.save();
+        if (shakeIntensity > 0.1) {
+            const sx = (Math.random() - 0.5) * shakeIntensity * 2;
+            const sy = (Math.random() - 0.5) * shakeIntensity * 2;
+            ctx.translate(sx, sy);
+        }
+
+        // Background
+        const bgGrad = ctx.createRadialGradient(CX, CY, 50, CX, CY, W * 0.8);
+        bgGrad.addColorStop(0, '#0a1228');
+        bgGrad.addColorStop(0.4, '#060a18');
+        bgGrad.addColorStop(1, '#020308');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(-50, -50, W + 100, H + 100);
+
+        // Nebula
+        for (let i = 0; i < 5; i++) {
+            const nx = CX + Math.cos(i * 1.3 + performance.now() * 0.00005) * 200;
+            const ny = CY + Math.sin(i * 0.9 + performance.now() * 0.00003) * 180;
+            const nr = 150 + i * 40;
+            const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+            const hue = [220, 260, 200, 280, 240][i];
+            ng.addColorStop(0, `hsla(${hue}, 70%, 50%, 0.06)`);
+            ng.addColorStop(1, `hsla(${hue}, 70%, 50%, 0)`);
+            ctx.fillStyle = ng;
+            ctx.beginPath();
+            ctx.arc(nx, ny, nr, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Stars
+        for (const s of stars) {
+            const alpha = s.baseAlpha * (0.6 + 0.4 * Math.sin(s.twinklePhase));
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+            ctx.fill();
+            if (s.r > 1.2) {
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r * 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(180, 210, 255, ${alpha * 0.15})`;
+                ctx.fill();
+            }
+        }
+
+        // Orbit ring
+        ctx.beginPath();
+        ctx.arc(CX, CY, ORBIT_RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = slowMoActive ? '#ffaa44' : '#9bb9ff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 14]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(CX, CY, ORBIT_RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = slowMoActive ? 'rgba(255,170,68,0.08)' : 'rgba(155,185,255,0.08)';
+        ctx.lineWidth = 12;
+        ctx.stroke();
+
+        // Planet
+        const auraGrad = ctx.createRadialGradient(CX, CY, PLANET_RADIUS * 0.8, CX, CY, PLANET_RADIUS * 2.5);
+        auraGrad.addColorStop(0, 'rgba(100, 160, 255, 0.15)');
+        auraGrad.addColorStop(0.5, 'rgba(60, 100, 200, 0.06)');
+        auraGrad.addColorStop(1, 'rgba(30, 50, 120, 0)');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(CX, CY, PLANET_RADIUS * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const planetGrad = ctx.createRadialGradient(
+            CX - PLANET_RADIUS * 0.35, CY - PLANET_RADIUS * 0.35, PLANET_RADIUS * 0.1,
+            CX, CY, PLANET_RADIUS
+        );
+        planetGrad.addColorStop(0, '#8ab8f0');
+        planetGrad.addColorStop(0.3, '#4a7ac0');
+        planetGrad.addColorStop(0.7, '#1e3a6a');
+        planetGrad.addColorStop(1, '#0a1228');
+        ctx.beginPath();
+        ctx.arc(CX, CY, PLANET_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = planetGrad;
+        ctx.fill();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(CX, CY, PLANET_RADIUS, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.beginPath(); ctx.arc(CX - 25, CY - 20, 30, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(80, 140, 200, 0.25)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(CX + 30, CY + 25, 22, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(60, 110, 170, 0.2)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(CX + 10, CY - 40, 18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(90, 150, 210, 0.15)'; ctx.fill();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(CX, CY, PLANET_RADIUS - 1, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(160, 200, 255, 0.4)';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#7aa9ff';
+        ctx.shadowBlur = 25;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Magnet field
+        if (magnetActive) {
+            const satX = CX + Math.cos(angle) * ORBIT_RADIUS;
+            const satY = CY + Math.sin(angle) * ORBIT_RADIUS;
+            ctx.beginPath();
+            ctx.arc(satX, satY, 180, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 102, 170, ${0.1 + 0.05 * Math.sin(performance.now() * 0.005)})`;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 15]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            for (let i = 0; i < 6; i++) {
+                const a = (i / 6) * Math.PI * 2 + performance.now() * 0.001;
+                ctx.beginPath();
+                ctx.moveTo(satX + Math.cos(a) * 40, satY + Math.sin(a) * 40);
+                ctx.lineTo(satX + Math.cos(a) * 170, satY + Math.sin(a) * 170);
+                ctx.strokeStyle = `rgba(255, 102, 170, ${0.08 + 0.04 * Math.sin(performance.now() * 0.003 + i)})`;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+
+        // Asteroids
+        for (const a of asteroids) {
+            ctx.save();
+            ctx.translate(a.x, a.y);
+            ctx.rotate(a.rot);
+            const r = a.radius;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            const points = 7;
+            for (let i = 0; i < points; i++) {
+                const angle2 = (i / points) * Math.PI * 2;
+                const variance = 0.7 + Math.sin(i * 2.7 + a.rot * 3) * 0.3;
+                const px = Math.cos(angle2) * r * variance;
+                const py = Math.sin(angle2) * r * variance;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            const rockGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r * 1.2);
+            rockGrad.addColorStop(0, a.colorLight);
+            rockGrad.addColorStop(0.6, a.colorMid);
+            rockGrad.addColorStop(1, a.colorDark);
+            ctx.fillStyle = rockGrad;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(180, 180, 200, 0.5)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(-r * 0.25, -r * 0.15, r * 0.18, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(r * 0.3, r * 0.25, r * 0.12, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fill();
+            if (a.tier >= 1) {
+                ctx.beginPath();
+                ctx.arc(r * 0.1, -r * 0.4, r * 0.1, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.fill();
+            }
+            const dir = Math.atan2(a.vy, a.vx);
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(dir) * r * 0.5, Math.sin(dir) * r * 0.5);
+            ctx.lineTo(Math.cos(dir) * r * 1.4, Math.sin(dir) * r * 1.4);
+            ctx.strokeStyle = 'rgba(255, 100, 100, 0.15)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Powerups
+        for (const p of powerups) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const pulse = 1 + Math.sin(p.pulse) * 0.15;
+            const r = p.radius * pulse;
+            const col = p.type === 'shield' ? '#44ddff' : p.type === 'slow' ? '#ffaa44' : '#ff66aa';
+            const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 2);
+            glowGrad.addColorStop(0, col + '44');
+            glowGrad.addColorStop(1, col + '00');
+            ctx.fillStyle = glowGrad;
+            ctx.beginPath(); ctx.arc(0, 0, r * 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = col; ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = col;
+            ctx.font = 'bold 16px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(p.type === 'shield' ? '🛡' : p.type === 'slow' ? '⏱' : '🧲', 0, 1);
+            ctx.restore();
+        }
+
+        // Particles
+        for (const p of particles) {
+            const alpha = p.life / p.maxLife;
+            if (p.glow) { ctx.shadowColor = p.color; ctx.shadowBlur = 12; }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+        }
+
+        // Satellite (with invuln flash)
+        if (!gameOver && gameStarted) {
+            const satX = CX + Math.cos(angle) * ORBIT_RADIUS;
+            const satY = CY + Math.sin(angle) * ORBIT_RADIUS;
+
+            // === FIX #1: visual invuln feedback (blink) ===
+            const invulnActive = invulnTimer > 0;
+            const invulnAlpha = invulnActive ? (0.35 + 0.65 * Math.abs(Math.sin(performance.now() * 0.025))) : 1.0;
+
+            if (shieldActive) {
+                const shieldPulse = 1 + Math.sin(performance.now() * 0.01) * 0.1;
+                ctx.beginPath();
+                ctx.arc(satX, satY, SAT_SIZE * 2.2 * shieldPulse, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(68, 221, 255, ${0.3 + 0.15 * Math.sin(performance.now() * 0.015)})`;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#44ddff';
+                ctx.shadowBlur = 25;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                const shieldGrad = ctx.createRadialGradient(satX, satY, SAT_SIZE, satX, satY, SAT_SIZE * 2.2);
+                shieldGrad.addColorStop(0, 'rgba(68, 221, 255, 0)');
+                shieldGrad.addColorStop(0.7, `rgba(68, 221, 255, ${0.05 + 0.03 * Math.sin(performance.now() * 0.01)})`);
+                shieldGrad.addColorStop(1, 'rgba(68, 221, 255, 0)');
+                ctx.fillStyle = shieldGrad;
+                ctx.beginPath();
+                ctx.arc(satX, satY, SAT_SIZE * 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.save();
+            ctx.globalAlpha = invulnAlpha;
+            ctx.translate(satX, satY);
+            ctx.rotate(angle + Math.PI / 2);
+
+            ctx.shadowColor = '#7ff0ff';
+            ctx.shadowBlur = 25;
+
+            const bodyGrad = ctx.createLinearGradient(-8, -5, 8, 5);
+            bodyGrad.addColorStop(0, '#f0f6ff');
+            bodyGrad.addColorStop(0.5, '#c0d8ff');
+            bodyGrad.addColorStop(1, '#8ab0e0');
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.roundRect(-9, -5, 18, 10, 3);
+            ctx.fill();
+            ctx.strokeStyle = '#e0eeff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#5a8ac0';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.roundRect(-24, -4, 10, 8, 2);
+            ctx.fill();
+            ctx.strokeStyle = '#8ab8f0';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.roundRect(14, -4, 10, 8, 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = '#3a6a9a';
+            ctx.lineWidth = 0.5;
+            for (let i = -22; i < -15; i += 3) {
+                ctx.beginPath(); ctx.moveTo(i, -4); ctx.lineTo(i, 4); ctx.stroke();
+            }
+            for (let i = 16; i < 23; i += 3) {
+                ctx.beginPath(); ctx.moveTo(i, -4); ctx.lineTo(i, 4); ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, -9, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffd966';
+            ctx.shadowColor = '#ffaa33';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.beginPath();
+            ctx.moveTo(0, -9); ctx.lineTo(0, -14);
+            ctx.strokeStyle = '#d0e2ff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            if (Math.sin(performance.now() * 0.01) > 0) {
+                ctx.beginPath();
+                ctx.arc(0, -14, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff4444';
+                ctx.shadowColor = '#ff4444';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.restore();
+        }
+
+        // Combo indicator near satellite
+        if (combo > 0 && gameStarted && !gameOver) {
+            const satX = CX + Math.cos(angle) * ORBIT_RADIUS;
+            const satY = CY + Math.sin(angle) * ORBIT_RADIUS;
+            ctx.font = 'bold 22px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(255, 217, 102, ${0.5 + 0.5 * Math.sin(performance.now() * 0.01)})`;
+            ctx.shadowColor = '#ffaa33';
+            ctx.shadowBlur = 20;
+            ctx.fillText('x' + combo, satX, satY - 35);
+            ctx.shadowBlur = 0;
+        }
+
+        // === FIX #4: canvas-based float text ===
+        for (const ft of floatTexts) {
+            const alpha = ft.life / ft.maxLife;
+            const scale = 1 + (1 - alpha) * 0.4;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(ft.x, ft.y);
+            ctx.scale(scale, scale);
+            ctx.font = 'bold 20px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = ft.color;
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 20;
+            ctx.fillText(ft.text, 0, 0);
+            ctx.restore();
+        }
+
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(5, 8, 18, 0.7)';
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        if (slowMoActive) {
+            const vigGrad = ctx.createRadialGradient(CX, CY, W * 0.3, CX, CY, W * 0.7);
+            vigGrad.addColorStop(0, 'rgba(255, 170, 68, 0)');
+            vigGrad.addColorStop(1, `rgba(255, 170, 68, ${0.08 + 0.04 * Math.sin(performance.now() * 0.005)})`);
+            ctx.fillStyle = vigGrad;
+            ctx.fillRect(-50, -50, W + 100, H + 100);
+        }
+
+        ctx.restore();
+
+        drawPowerupTimers();
+    }
+
+    function drawPowerupTimers() {
+        const barW = 120, barH = 6;
+        let yOffset = 20;
+        if (shieldActive) { drawTimerBar(20, yOffset, barW, barH, shieldTimer / SHIELD_DURATION, '#44ddff', '🛡'); yOffset += 22; }
+        if (slowMoActive) { drawTimerBar(20, yOffset, barW, barH, slowMoTimer / SLOWMO_DURATION, '#ffaa44', '⏱'); yOffset += 22; }
+        if (magnetActive) { drawTimerBar(20, yOffset, barW, barH, magnetTimer / MAGNET_DURATION, '#ff66aa', '🧲'); yOffset += 22; }
+    }
+
+    function drawTimerBar(x, y, w, h, pct, color, icon) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 3);
+        ctx.fill();
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w * Math.max(0, pct), h, 3);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(icon, x + w + 8, y + h / 2);
+    }
+
+    // ============================================================
+    //  LOOP
+    // ============================================================
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ============================================================
+    //  INPUT
+    // ============================================================
+    function handleKeyDown(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'Left' || e.key === 'a' || e.key === 'A') {
+            leftPressed = true; e.preventDefault();
+        } else if (e.key === 'ArrowRight' || e.key === 'Right' || e.key === 'd' || e.key === 'D') {
+            rightPressed = true; e.preventDefault();
+        } else if (e.key === ' ' || e.key === 'Enter') {
+            if (!gameStarted) {
+                // Start via direct gesture (keyboard counts)
+                unlockAudio();
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) startBtn.click();
+                else if (titleOverlayEl) onStartBtnClick();
+            }
+            e.preventDefault();
+        }
+    }
+    function handleKeyUp(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'Left' || e.key === 'a' || e.key === 'A') {
+            leftPressed = false; e.preventDefault();
+        } else if (e.key === 'ArrowRight' || e.key === 'Right' || e.key === 'd' || e.key === 'D') {
+            rightPressed = false; e.preventDefault();
+        }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', () => { leftPressed = false; rightPressed = false; });
+
+    // === FIX #6: Virtual touch controls below canvas ===
+    const touchLeft = document.getElementById('touchLeft');
+    const touchRight = document.getElementById('touchRight');
+
+    function bindTouchBtn(el, setter) {
+        const on = (e) => {
+            e.preventDefault();
+            setter(true);
+            el.classList.add('active');
+            // First touch also unlocks audio if game is running
+            unlockAudio();
+        };
+        const off = (e) => {
+            e.preventDefault();
+            setter(false);
+            el.classList.remove('active');
+        };
+        el.addEventListener('pointerdown', on);
+        el.addEventListener('pointerup', off);
+        el.addEventListener('pointerleave', off);
+        el.addEventListener('pointercancel', off);
+        el.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    bindTouchBtn(touchLeft, (v) => { leftPressed = v; });
+    bindTouchBtn(touchRight, (v) => { rightPressed = v; });
+
+    // Detect touch capability and force-show controls
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isTouch) document.body.classList.add('touch-mode');
+
+    // Canvas pointer (tap halves)
+    let pointerDown = false;
+    canvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        // Any touch/click unlocks audio if game is in progress
+        if (gameStarted && !gameOver) {
+            unlockAudio();
+            pointerDown = true;
+            updatePointerDirection(e);
+        }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (!pointerDown) return;
+        e.preventDefault();
+        updatePointerDirection(e);
+    });
+    function updatePointerDirection(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        if (canvasX < W / 2) { leftPressed = true; rightPressed = false; }
+        else { rightPressed = true; leftPressed = false; }
+    }
+    function releasePointer() {
+        pointerDown = false;
+        leftPressed = false;
+        rightPressed = false;
+    }
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointerleave', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Reset button — no audio unlock needed but harmless
+    document.getElementById('resetButton').addEventListener('click', () => {
+        resetGame();
+    });
+
+    // ============================================================
+    //  INIT
+    // ============================================================
+    initStars();
+    resetGame();
+    requestAnimationFrame(gameLoop);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            leftPressed = false;
+            rightPressed = false;
+        }
+    });
+
+    function handleResize() {
+        const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - (isTouch ? 300 : 200));
+        const size = Math.min(720, Math.max(360, maxSize));
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+    }
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+})();
+</script>
+</body>
+</html>
